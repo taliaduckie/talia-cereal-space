@@ -132,6 +132,7 @@
     <div class="legend-item" data-tier="d"><div class="legend-dot" style="background:var(--d)"></div>D tier</div>
     <div class="axis-legend">sphere size = cartoon effect</div>
     <button class="reset-btn" id="reset-filter">show all</button>
+    <button class="reset-btn" id="reset-orientation">reset view</button>
   </div>
   <div class="search-bar">
     <input type="text" id="cereal-search" placeholder="search a cereal..." autocomplete="off" />
@@ -323,8 +324,10 @@ window.addEventListener('mousemove', e => {
     tip.style.left = (e.clientX - rect.left + 12) + 'px';
     tip.style.top = (e.clientY - rect.top - 10) + 'px';
     tip.innerHTML = `${d.name}<br><span style="opacity:0.6">${d.tier.toUpperCase()} tier · weighted ${d.weighted.toFixed(2)}<br>struct ${d.struct} · milk ${d.milk} · dry ${d.dry} · cartoon ${d.cartoon}</span>`;
+    highlightSphere(d.name);
   } else {
     tip.style.opacity = '0';
+    clearHighlight();
   }
 });
 
@@ -354,21 +357,23 @@ wrap.addEventListener('touchend', e => {
     if (hits.length > 0) {
       const d = hits[0].object.userData;
       const tip = document.getElementById('tooltip');
-      // tap same sphere again to dismiss
       if (tip.dataset.current === d.name && tip.style.opacity === '1') {
         tip.style.opacity = '0';
         tip.dataset.current = '';
+        clearHighlight();
       } else {
         tip.style.opacity = '1';
         tip.style.left = (tx - rect.left + 12) + 'px';
         tip.style.top = (ty - rect.top - 10) + 'px';
         tip.innerHTML = `${d.name}<br><span style="opacity:0.6">${d.tier.toUpperCase()} tier · weighted ${d.weighted.toFixed(2)}<br>struct ${d.struct} · milk ${d.milk} · dry ${d.dry} · cartoon ${d.cartoon}</span>`;
         tip.dataset.current = d.name;
+        highlightSphere(d.name);
       }
     } else {
       const tip = document.getElementById('tooltip');
       tip.style.opacity = '0';
       tip.dataset.current = '';
+      clearHighlight();
     }
   }
 });
@@ -380,10 +385,10 @@ wrap.addEventListener('touchmove', e => {
   const distFromStart = Math.hypot(e.touches[0].clientX - touchStartPos.x, e.touches[0].clientY - touchStartPos.y);
   if (distFromStart > 6) {
     touchMoved = true;
-    // hide tooltip when rotating
     const tip = document.getElementById('tooltip');
     tip.style.opacity = '0';
     tip.dataset.current = '';
+    clearHighlight();
   }
   spherical.theta -= dx * 0.008;
   spherical.phi = Math.max(0.2, Math.min(Math.PI - 0.2, spherical.phi + dy * 0.008));
@@ -451,6 +456,17 @@ function renderResult(d) {
     </div>`;
 }
 
+// highlight helpers
+function highlightSphere(name) {
+  spheres.forEach(s => {
+    s.material.emissive = new THREE.Color(s.userData.name === name ? 0xffffff : 0x000000);
+    s.material.emissiveIntensity = s.userData.name === name ? 0.5 : 0;
+  });
+}
+function clearHighlight() {
+  spheres.forEach(s => { s.material.emissive = new THREE.Color(0x000000); s.material.emissiveIntensity = 0; });
+}
+
 // tier filter
 let activeTiers = new Set(['s','a','b','c','d']);
 
@@ -485,8 +501,16 @@ document.querySelectorAll('.legend-item[data-tier]').forEach(btn => {
     const tip = document.getElementById('tooltip');
     tip.style.opacity = '0';
     tip.dataset.current = '';
+    clearHighlight();
     applyFilter();
   });
+});
+
+document.getElementById('reset-orientation').addEventListener('click', () => {
+  spherical.theta = 0.6;
+  spherical.phi = 0.9;
+  spherical.radius = 11;
+  updateCamera();
 });
 
 document.getElementById('reset-filter').addEventListener('click', () => {
