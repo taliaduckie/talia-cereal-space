@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cereal 3d scatter</title>
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --s: #e63946; --a: #f4a261; --b: #2a9d8f; --c: #457b9d; --d: #6d6875;
+    --bg: #fdf6ec; --ink: #1a1209; --paper: #fffdf7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    font-family: 'DM Mono', monospace;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 30px 20px;
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(180,160,120,0.12) 39px, rgba(180,160,120,0.12) 40px);
+  }
+  .container {
+    width: 900px;
+    background: var(--paper);
+    border: 2.5px solid var(--ink);
+    box-shadow: 7px 7px 0 var(--ink);
+    overflow: hidden;
+  }
+  .header {
+    background: var(--ink);
+    padding: 14px 20px 12px;
+    display: flex; align-items: baseline; gap: 14px;
+    position: relative;
+  }
+  .header::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+    background: repeating-linear-gradient(90deg, var(--s) 0 40px, var(--a) 40px 80px, var(--b) 80px 120px, var(--c) 120px 160px, var(--d) 160px 200px);
+  }
+  .title { font-family: 'Alfa Slab One', serif; font-size: 22px; color: var(--bg); text-transform: uppercase; letter-spacing: 0.04em; }
+  .subtitle { font-size: 9px; color: rgba(253,246,236,0.45); letter-spacing: 0.14em; text-transform: uppercase; }
+  #canvas-wrap { position: relative; width: 900px; height: 560px; background: var(--paper); cursor: grab; }
+  #canvas-wrap:active { cursor: grabbing; }
+  canvas { display: block; }
+  #tooltip {
+    position: absolute; pointer-events: none;
+    background: var(--ink); color: var(--bg);
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 5px 10px; white-space: nowrap;
+    opacity: 0; transition: opacity 0.1s;
+    border: 1.5px solid var(--bg);
+  }
+  .footer-bar {
+    padding: 8px 16px;
+    display: flex; gap: 20px; flex-wrap: wrap; align-items: center;
+    border-top: 2px solid var(--ink);
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(26,18,9,0.6); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .axis-legend { margin-left: auto; font-size: 9px; letter-spacing: 0.08em; color: rgba(26,18,9,0.4); text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="title">Cereal Space</div>
+    <div class="subtitle">x: structural integrity · y: milk palatability · z: dry merit · size: cartoon effect · drag to rotate</div>
+  </div>
+  <div id="canvas-wrap">
+    <div id="tooltip"></div>
+  </div>
+  <div class="footer-bar">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--s)"></div>S tier</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--a)"></div>A tier</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--b)"></div>B tier</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c)"></div>C tier</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--d)"></div>D tier</div>
+    <div class="axis-legend">sphere size = cartoon effect</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const TIER_COLORS = { s: 0xe63946, a: 0xf4a261, b: 0x2a9d8f, c: 0x457b9d, d: 0x6d6875 };
+
+const data = [
+  { name: "PB Puffins",            struct:4, milk:4, dry:5, cartoon:3, tier:"s", weighted:4.05 },
+  { name: "Rice Krispies",         struct:2, milk:3, dry:2, cartoon:3, tier:"s", weighted:2.45 },
+  { name: "Honey Nut Cheerios",    struct:4, milk:4, dry:5, cartoon:2, tier:"s", weighted:3.90 },
+  { name: "Panda Puffs",           struct:4, milk:4, dry:3, cartoon:2, tier:"s", weighted:3.50 },
+  { name: "Honeycombs",            struct:3, milk:5, dry:5, cartoon:2, tier:"a", weighted:3.85 },
+  { name: "Frosted Flakes",        struct:5, milk:4, dry:4, cartoon:3, tier:"a", weighted:4.20 },
+  { name: "Kix",                   struct:3, milk:3, dry:5, cartoon:1, tier:"a", weighted:3.10 },
+  { name: "Apple Cin. Cheerios",   struct:4, milk:5, dry:4, cartoon:2, tier:"a", weighted:4.00 },
+  { name: "Cheerios",              struct:3, milk:1, dry:3, cartoon:1, tier:"a", weighted:2.10 },
+  { name: "Special K Red",         struct:2, milk:2, dry:4, cartoon:1, tier:"a", weighted:2.25 },
+  { name: "Lucky Charms",          struct:4, milk:3, dry:4, cartoon:5, tier:"a", weighted:3.85 },
+  { name: "Life",                  struct:4, milk:4, dry:3, cartoon:2, tier:"a", weighted:3.50 },
+  { name: "Cocoa Puffs",           struct:4, milk:2, dry:3, cartoon:4, tier:"b", weighted:3.20 },
+  { name: "Cinnamon Toast Crunch", struct:3, milk:3, dry:5, cartoon:5, tier:"b", weighted:3.70 },
+  { name: "Froot Loops",           struct:4, milk:2, dry:3, cartoon:5, tier:"b", weighted:3.35 },
+  { name: "Reese's Puffs",         struct:5, milk:3, dry:4, cartoon:5, tier:"b", weighted:4.20 },
+  { name: "Special K",             struct:2, milk:1, dry:3, cartoon:1, tier:"b", weighted:1.75 },
+  { name: "Frosted Mini Wheats",   struct:2, milk:2, dry:3, cartoon:4, tier:"b", weighted:2.50 },
+  { name: "Raisin Bran",           struct:2, milk:1, dry:3, cartoon:2, tier:"b", weighted:1.90 },
+  { name: "Cap'n Crunch PB",       struct:4, milk:4, dry:4, cartoon:4, tier:"b", weighted:4.00 },
+  { name: "Honey Bunches of Oats", struct:4, milk:4, dry:3, cartoon:1, tier:"b", weighted:3.35 },
+  { name: "Chex Wheat",            struct:4, milk:2, dry:3, cartoon:1, tier:"b", weighted:2.75 },
+  { name: "Chex Rice",             struct:2, milk:4, dry:3, cartoon:1, tier:"b", weighted:2.65 },
+  { name: "Chex Corn",             struct:3, milk:3, dry:3, cartoon:1, tier:"b", weighted:2.70 },
+  { name: "Apple Jacks",           struct:4, milk:1, dry:1, cartoon:5, tier:"c", weighted:2.65 },
+  { name: "Cocoa Crispies",        struct:3, milk:3, dry:2, cartoon:4, tier:"c", weighted:2.95 },
+  { name: "Corn Flakes",           struct:3, milk:2, dry:2, cartoon:1, tier:"c", weighted:2.20 },
+  { name: "Cocoa Pebbles",         struct:1, milk:3, dry:2, cartoon:4, tier:"c", weighted:2.25 },
+  { name: "Cap'n Crunch",          struct:3, milk:2, dry:3, cartoon:5, tier:"c", weighted:3.00 },
+  { name: "Frosted Crispies",      struct:4, milk:3, dry:3, cartoon:4, tier:"c", weighted:3.50 },
+  { name: "Grape Nuts",            struct:5, milk:1, dry:3, cartoon:1, tier:"c", weighted:2.80 },
+  { name: "Trix",                  struct:3, milk:1, dry:2, cartoon:5, tier:"d", weighted:2.50 },
+  { name: "Pops",                  struct:3, milk:1, dry:2, cartoon:2, tier:"d", weighted:2.05 },
+  { name: "Fruity Pebbles",        struct:1, milk:1, dry:1, cartoon:5, tier:"d", weighted:1.60 },
+  { name: "Cookie Crisp",          struct:4, milk:1, dry:1, cartoon:4, tier:"d", weighted:2.50 },
+  { name: "Cap'n Crunch Berry",    struct:4, milk:1, dry:1, cartoon:4, tier:"d", weighted:2.50 },
+];
+
+// scene setup
+const wrap = document.getElementById('canvas-wrap');
+const W = wrap.clientWidth, H = wrap.clientHeight;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0xfffdf7, 1);
+wrap.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, W/H, 0.1, 100);
+camera.position.set(6, 5, 8);
+camera.lookAt(0, 0, 0);
+
+// lighting
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+dir.position.set(5, 8, 5);
+scene.add(dir);
+
+// grid box / axes
+const RANGE = 2.5;
+function makeAxis(from, to, color) {
+  const mat = new THREE.LineBasicMaterial({ color, opacity: 0.3, transparent: true });
+  const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...from), new THREE.Vector3(...to)]);
+  return new THREE.Line(geo, mat);
+}
+
+// axis lines
+scene.add(makeAxis([-RANGE,0,0],[RANGE,0,0], 0xe63946));
+scene.add(makeAxis([0,-RANGE,0],[0,RANGE,0], 0x2a9d8f));
+scene.add(makeAxis([0,0,-RANGE],[0,0,RANGE], 0x457b9d));
+
+// grid
+const gridHelper = new THREE.GridHelper(5, 8, 0x1a1209, 0x1a1209);
+gridHelper.material.opacity = 0.06;
+gridHelper.material.transparent = true;
+scene.add(gridHelper);
+
+// map 1-5 to -2..2
+function mapVal(v) { return (v - 3) * 1.0; }
+
+// spheres
+const spheres = [];
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+data.forEach(d => {
+  const x = mapVal(d.struct);
+  const y = mapVal(d.milk);
+  const z = mapVal(d.dry);
+  const r = 0.07 + (d.cartoon - 1) * 0.04; // 0.07 to 0.23
+
+  const geo = new THREE.SphereGeometry(r, 20, 20);
+  const mat = new THREE.MeshPhongMaterial({
+    color: TIER_COLORS[d.tier],
+    shininess: 60,
+    transparent: true,
+    opacity: 0.88,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  mesh.userData = d;
+  scene.add(mesh);
+  spheres.push(mesh);
+});
+
+// axis labels as sprites
+function makeTextSprite(text, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'transparent';
+  ctx.clearRect(0,0,256,64);
+  ctx.fillStyle = color;
+  ctx.font = 'bold 22px DM Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(text.toUpperCase(), 128, 40);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.2, 0.3, 1);
+  return sprite;
+}
+
+const lx = makeTextSprite('structural integrity →', '#e63946');
+lx.position.set(RANGE + 0.8, 0, 0);
+scene.add(lx);
+
+const ly = makeTextSprite('milk palatability →', '#2a9d8f');
+ly.position.set(0, RANGE + 0.5, 0);
+scene.add(ly);
+
+const lz = makeTextSprite('dry merit →', '#457b9d');
+lz.position.set(0, 0, RANGE + 0.7);
+scene.add(lz);
+
+// orbit controls (manual)
+let isDragging = false;
+let prevMouse = { x: 0, y: 0 };
+let spherical = { theta: 0.6, phi: 0.9, radius: 11 };
+
+function updateCamera() {
+  camera.position.x = spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+  camera.position.y = spherical.radius * Math.cos(spherical.phi);
+  camera.position.z = spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+  camera.lookAt(0, 0, 0);
+}
+updateCamera();
+
+wrap.addEventListener('mousedown', e => { isDragging = true; prevMouse = { x: e.clientX, y: e.clientY }; });
+window.addEventListener('mouseup', () => { isDragging = false; });
+window.addEventListener('mousemove', e => {
+  if (isDragging) {
+    const dx = e.clientX - prevMouse.x;
+    const dy = e.clientY - prevMouse.y;
+    spherical.theta -= dx * 0.008;
+    spherical.phi = Math.max(0.2, Math.min(Math.PI - 0.2, spherical.phi + dy * 0.008));
+    prevMouse = { x: e.clientX, y: e.clientY };
+    updateCamera();
+  }
+
+  // hover
+  const rect = wrap.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / W) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / H) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(spheres);
+  const tip = document.getElementById('tooltip');
+  if (hits.length > 0) {
+    const d = hits[0].object.userData;
+    tip.style.opacity = '1';
+    tip.style.left = (e.clientX - rect.left + 12) + 'px';
+    tip.style.top = (e.clientY - rect.top - 10) + 'px';
+    tip.innerHTML = `${d.name}<br><span style="opacity:0.6">${d.tier.toUpperCase()} tier · weighted ${d.weighted.toFixed(2)}<br>struct ${d.struct} · milk ${d.milk} · dry ${d.dry} · cartoon ${d.cartoon}</span>`;
+  } else {
+    tip.style.opacity = '0';
+  }
+});
+
+// touch events
+wrap.addEventListener('touchstart', e => {
+  isDragging = true;
+  prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  e.preventDefault();
+}, { passive: false });
+
+wrap.addEventListener('touchend', () => { isDragging = false; });
+
+wrap.addEventListener('touchmove', e => {
+  if (!isDragging) return;
+  const dx = e.touches[0].clientX - prevMouse.x;
+  const dy = e.touches[0].clientY - prevMouse.y;
+  spherical.theta -= dx * 0.008;
+  spherical.phi = Math.max(0.2, Math.min(Math.PI - 0.2, spherical.phi + dy * 0.008));
+  prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  updateCamera();
+
+  // tap to show tooltip
+  const rect = wrap.getBoundingClientRect();
+  mouse.x = ((e.touches[0].clientX - rect.left) / W) * 2 - 1;
+  mouse.y = -((e.touches[0].clientY - rect.top) / H) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(spheres);
+  const tip = document.getElementById('tooltip');
+  if (hits.length > 0) {
+    const d = hits[0].object.userData;
+    tip.style.opacity = '1';
+    tip.style.left = (e.touches[0].clientX - rect.left + 12) + 'px';
+    tip.style.top = (e.touches[0].clientY - rect.top - 10) + 'px';
+    tip.innerHTML = `${d.name}<br><span style="opacity:0.6">${d.tier.toUpperCase()} tier · weighted ${d.weighted.toFixed(2)}</span>`;
+  } else {
+    tip.style.opacity = '0';
+  }
+  e.preventDefault();
+}, { passive: false });
+
+wrap.addEventListener('wheel', e => {
+  spherical.radius = Math.max(4, Math.min(18, spherical.radius + e.deltaY * 0.01));
+  updateCamera();
+  e.preventDefault();
+}, { passive: false });
+
+// render loop
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
