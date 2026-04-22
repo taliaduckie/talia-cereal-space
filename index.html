@@ -230,10 +230,11 @@ const spheres = [];
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-data.forEach(d => {
-  const x = mapVal(d.struct);
-  const y = mapVal(d.milk);
-  const z = mapVal(d.dry);
+data.forEach((d, i) => {
+  const jitter = () => (Math.random() - 0.5) * 0.18;
+  const x = mapVal(d.struct) + jitter();
+  const y = mapVal(d.milk) + jitter();
+  const z = mapVal(d.dry) + jitter();
   const r = 0.07 + (d.cartoon - 1) * 0.04; // 0.07 to 0.23
 
   const geo = new THREE.SphereGeometry(r, 20, 20);
