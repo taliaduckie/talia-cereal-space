@@ -15,11 +15,12 @@
     background: var(--bg);
     font-family: 'DM Mono', monospace;
     display: flex; flex-direction: column; align-items: center;
-    padding: 30px 20px;
+    padding: 0;
     background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(180,160,120,0.12) 39px, rgba(180,160,120,0.12) 40px);
   }
   .container {
-    width: 900px;
+    width: 100%;
+    max-width: 900px;
     background: var(--paper);
     border: 2.5px solid var(--ink);
     box-shadow: 7px 7px 0 var(--ink);
@@ -38,7 +39,7 @@
   }
   .title { font-family: 'Alfa Slab One', serif; font-size: 22px; color: var(--bg); text-transform: uppercase; letter-spacing: 0.04em; }
   .subtitle { font-size: 9px; color: rgba(253,246,236,0.45); letter-spacing: 0.14em; text-transform: uppercase; }
-  #canvas-wrap { position: relative; width: 900px; height: 560px; background: var(--paper); cursor: grab; }
+  #canvas-wrap { position: relative; width: 100%; height: 440px; background: var(--paper); cursor: grab; }
   #canvas-wrap:active { cursor: grabbing; }
   canvas { display: block; }
   #tooltip {
@@ -55,9 +56,63 @@
     display: flex; gap: 20px; flex-wrap: wrap; align-items: center;
     border-top: 2px solid var(--ink);
   }
-  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(26,18,9,0.6); }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(26,18,9,0.6); cursor: pointer; user-select: none; padding: 3px 6px; border: 1.5px solid transparent; transition: all 0.15s; }
+  .legend-item:hover { border-color: rgba(26,18,9,0.2); }
+  .legend-item.active { border-color: var(--ink); background: rgba(26,18,9,0.05); }
+  .legend-item.dimmed { opacity: 0.35; }
   .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
-  .axis-legend { margin-left: auto; font-size: 9px; letter-spacing: 0.08em; color: rgba(26,18,9,0.4); text-transform: uppercase; }
+  .reset-btn { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; padding: 3px 8px; border: 1.5px solid rgba(26,18,9,0.3); background: transparent; color: rgba(26,18,9,0.5); cursor: pointer; }
+  .reset-btn:hover { border-color: var(--ink); color: var(--ink); }
+  .axis-legend { font-size: 9px; letter-spacing: 0.08em; color: rgba(26,18,9,0.4); text-transform: uppercase; }
+  .search-bar {
+    padding: 10px 16px;
+    border-top: 2px solid var(--ink);
+    display: flex; gap: 10px; align-items: center;
+  }
+  .search-bar input {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 6px 10px;
+    border: 1.5px solid var(--ink);
+    background: white;
+    color: var(--ink);
+    flex: 1;
+    outline: none;
+  }
+  .search-bar input::placeholder { color: rgba(26,18,9,0.3); }
+  .search-bar input:focus { border-color: var(--b); }
+  #search-result {
+    padding: 0 16px 12px;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    min-height: 0;
+    transition: all 0.15s;
+  }
+  .result-card {
+    border: 1.5px solid var(--ink);
+    background: white;
+    padding: 10px 14px;
+    display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+  }
+  .result-name { font-family: 'Alfa Slab One', serif; font-size: 14px; color: var(--ink); letter-spacing: 0.04em; }
+  .result-tier {
+    font-family: 'Alfa Slab One', serif; font-size: 11px; color: white;
+    padding: 2px 7px;
+  }
+  .result-axes { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; width: 100%; }
+  .result-axis { display: flex; flex-direction: column; gap: 2px; }
+  .result-axis-label { font-size: 8px; color: rgba(26,18,9,0.4); letter-spacing: 0.1em; }
+  .result-axis-val { font-size: 13px; font-weight: 500; }
+  .result-axis-dots { display: flex; gap: 2px; margin-top: 2px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(26,18,9,0.1); }
+  .dot.filled { background: var(--ink); }
+  .result-weighted { margin-left: auto; text-align: right; }
+  .result-weighted-label { font-size: 8px; color: rgba(26,18,9,0.4); letter-spacing: 0.1em; }
+  .result-weighted-val { font-size: 20px; font-family: 'Alfa Slab One', serif; }
+  .no-result { color: rgba(26,18,9,0.35); font-size: 10px; padding: 8px 0; }
 </style>
 </head>
 <body>
@@ -70,13 +125,18 @@
     <div id="tooltip"></div>
   </div>
   <div class="footer-bar">
-    <div class="legend-item"><div class="legend-dot" style="background:var(--s)"></div>S tier</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--a)"></div>A tier</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--b)"></div>B tier</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--c)"></div>C tier</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--d)"></div>D tier</div>
+    <div class="legend-item" data-tier="s"><div class="legend-dot" style="background:var(--s)"></div>S tier</div>
+    <div class="legend-item" data-tier="a"><div class="legend-dot" style="background:var(--a)"></div>A tier</div>
+    <div class="legend-item" data-tier="b"><div class="legend-dot" style="background:var(--b)"></div>B tier</div>
+    <div class="legend-item" data-tier="c"><div class="legend-dot" style="background:var(--c)"></div>C tier</div>
+    <div class="legend-item" data-tier="d"><div class="legend-dot" style="background:var(--d)"></div>D tier</div>
     <div class="axis-legend">sphere size = cartoon effect</div>
+    <button class="reset-btn" id="reset-filter">show all</button>
   </div>
+  <div class="search-bar">
+    <input type="text" id="cereal-search" placeholder="search a cereal..." autocomplete="off" />
+  </div>
+  <div id="search-result"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -124,7 +184,7 @@ const data = [
 
 // scene setup
 const wrap = document.getElementById('canvas-wrap');
-const W = wrap.clientWidth, H = wrap.clientHeight;
+const W = wrap.clientWidth || 900, H = wrap.clientHeight || 560;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(W, H);
@@ -208,8 +268,9 @@ function makeTextSprite(text, color) {
   return sprite;
 }
 
-const lx = makeTextSprite('structural integrity →', '#e63946');
-lx.position.set(RANGE + 0.8, 0, 0);
+const lx = makeTextSprite('struct. integrity →', '#e63946');
+lx.position.set(RANGE + 0.2, -0.4, 0);
+lx.scale.set(1.6, 0.28, 1);
 scene.add(lx);
 
 const ly = makeTextSprite('milk palatability →', '#2a9d8f');
@@ -312,6 +373,117 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+
+// search
+const TIER_HEX = { s: '#e63946', a: '#f4a261', b: '#2a9d8f', c: '#457b9d', d: '#6d6875' };
+
+function dots(val, color) {
+  return [1,2,3,4,5].map(i =>
+    `<div class="dot${i <= val ? ' filled' : ''}" style="${i <= val ? `background:${color}` : ''}"></div>`
+  ).join('');
+}
+
+function renderResult(d) {
+  const color = TIER_HEX[d.tier];
+  return `
+    <div class="result-card">
+      <div style="display:flex;align-items:center;gap:10px;width:100%">
+        <div class="result-name">${d.name}</div>
+        <div class="result-tier" style="background:${color}">${d.tier.toUpperCase()}</div>
+        <div class="result-weighted" style="margin-left:auto">
+          <div class="result-weighted-label">weighted score</div>
+          <div class="result-weighted-val" style="color:${color}">${d.weighted.toFixed(2)}</div>
+        </div>
+      </div>
+      <div class="result-axes">
+        <div class="result-axis">
+          <div class="result-axis-label">structural integrity</div>
+          <div class="result-axis-val">${d.struct} / 5</div>
+          <div class="result-axis-dots">${dots(d.struct, color)}</div>
+        </div>
+        <div class="result-axis">
+          <div class="result-axis-label">milk palatability</div>
+          <div class="result-axis-val">${d.milk} / 5</div>
+          <div class="result-axis-dots">${dots(d.milk, color)}</div>
+        </div>
+        <div class="result-axis">
+          <div class="result-axis-label">dry merit</div>
+          <div class="result-axis-val">${d.dry} / 5</div>
+          <div class="result-axis-dots">${dots(d.dry, color)}</div>
+        </div>
+        <div class="result-axis">
+          <div class="result-axis-label">cartoon effect</div>
+          <div class="result-axis-val">${d.cartoon} / 5</div>
+          <div class="result-axis-dots">${dots(d.cartoon, color)}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// tier filter
+let activeTiers = new Set(['s','a','b','c','d']);
+
+function applyFilter() {
+  spheres.forEach(s => {
+    const tier = s.userData.tier;
+    const visible = activeTiers.has(tier);
+    s.visible = visible;
+    s.material.opacity = visible ? 0.88 : 0;
+  });
+}
+
+document.querySelectorAll('.legend-item[data-tier]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tier = btn.dataset.tier;
+    if (activeTiers.size === 5) {
+      // first click: isolate this tier
+      activeTiers = new Set([tier]);
+    } else if (activeTiers.has(tier) && activeTiers.size === 1) {
+      // clicking the only active tier: reset all
+      activeTiers = new Set(['s','a','b','c','d']);
+    } else if (activeTiers.has(tier)) {
+      activeTiers.delete(tier);
+    } else {
+      activeTiers.add(tier);
+    }
+    document.querySelectorAll('.legend-item[data-tier]').forEach(b => {
+      const t = b.dataset.tier;
+      b.classList.toggle('active', activeTiers.has(t) && activeTiers.size < 5);
+      b.classList.toggle('dimmed', !activeTiers.has(t));
+    });
+    applyFilter();
+  });
+});
+
+document.getElementById('reset-filter').addEventListener('click', () => {
+  activeTiers = new Set(['s','a','b','c','d']);
+  document.querySelectorAll('.legend-item[data-tier]').forEach(b => {
+    b.classList.remove('active', 'dimmed');
+  });
+  applyFilter();
+});
+
+document.getElementById('cereal-search').addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  const resultDiv = document.getElementById('search-result');
+  if (!q) { resultDiv.innerHTML = ''; return; }
+
+  const matches = data.filter(d => d.name.toLowerCase().includes(q));
+
+  if (matches.length === 0) {
+    resultDiv.innerHTML = '<div class="no-result">no cereal found</div>';
+  } else if (matches.length === 1) {
+    resultDiv.innerHTML = renderResult(matches[0]);
+    // highlight sphere
+    spheres.forEach(s => {
+      s.material.emissive = new THREE.Color(s.userData.name === matches[0].name ? 0xffffff : 0x000000);
+      s.material.emissiveIntensity = s.userData.name === matches[0].name ? 0.4 : 0;
+    });
+  } else {
+    resultDiv.innerHTML = matches.map(renderResult).join('<div style="height:6px"></div>');
+    spheres.forEach(s => { s.material.emissive = new THREE.Color(0x000000); s.material.emissiveIntensity = 0; });
+  }
+});
 </script>
 </body>
 </html>
