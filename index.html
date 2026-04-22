@@ -325,39 +325,60 @@ window.addEventListener('mousemove', e => {
 });
 
 // touch events
+let touchStartPos = { x: 0, y: 0 };
+let touchMoved = false;
+
 wrap.addEventListener('touchstart', e => {
   isDragging = true;
+  touchMoved = false;
+  touchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   e.preventDefault();
 }, { passive: false });
 
-wrap.addEventListener('touchend', () => { isDragging = false; });
+wrap.addEventListener('touchend', e => {
+  isDragging = false;
+  if (!touchMoved) {
+    // treat as tap — show tooltip for nearest sphere
+    const rect = wrap.getBoundingClientRect();
+    const tx = e.changedTouches[0].clientX;
+    const ty = e.changedTouches[0].clientY;
+    mouse.x = ((tx - rect.left) / W) * 2 - 1;
+    mouse.y = -((ty - rect.top) / H) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(spheres);
+    if (hits.length > 0) {
+      const d = hits[0].object.userData;
+      const tip = document.getElementById('tooltip');
+      // tap same sphere again to dismiss
+      if (tip.dataset.current === d.name && tip.style.opacity === '1') {
+        tip.style.opacity = '0';
+        tip.dataset.current = '';
+      } else {
+        tip.style.opacity = '1';
+        tip.style.left = (tx - rect.left + 12) + 'px';
+        tip.style.top = (ty - rect.top - 10) + 'px';
+        tip.innerHTML = `${d.name}<br><span style="opacity:0.6">${d.tier.toUpperCase()} tier · weighted ${d.weighted.toFixed(2)}<br>struct ${d.struct} · milk ${d.milk} · dry ${d.dry} · cartoon ${d.cartoon}</span>`;
+        tip.dataset.current = d.name;
+      }
+    } else {
+      const tip = document.getElementById('tooltip');
+      tip.style.opacity = '0';
+      tip.dataset.current = '';
+    }
+  }
+});
 
 wrap.addEventListener('touchmove', e => {
   if (!isDragging) return;
   const dx = e.touches[0].clientX - prevMouse.x;
   const dy = e.touches[0].clientY - prevMouse.y;
+  const distFromStart = Math.hypot(e.touches[0].clientX - touchStartPos.x, e.touches[0].clientY - touchStartPos.y);
+  if (distFromStart > 6) touchMoved = true;
   spherical.theta -= dx * 0.008;
   spherical.phi = Math.max(0.2, Math.min(Math.PI - 0.2, spherical.phi + dy * 0.008));
   prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   updateCamera();
-
-  // tap to show tooltip
-  const rect = wrap.getBoundingClientRect();
-  mouse.x = ((e.touches[0].clientX - rect.left) / W) * 2 - 1;
-  mouse.y = -((e.touches[0].clientY - rect.top) / H) * 2 + 1;
-  raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObjects(spheres);
-  const tip = document.getElementById('tooltip');
-  if (hits.length > 0) {
-    const d = hits[0].object.userData;
-    tip.style.opacity = '1';
-    tip.style.left = (e.touches[0].clientX - rect.left + 12) + 'px';
-    tip.style.top = (e.touches[0].clientY - rect.top - 10) + 'px';
-    tip.innerHTML = `${d.name}<br><span style="opacity:0.6">${d.tier.toUpperCase()} tier · weighted ${d.weighted.toFixed(2)}</span>`;
-  } else {
-    tip.style.opacity = '0';
-  }
   e.preventDefault();
 }, { passive: false });
 
