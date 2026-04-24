@@ -207,7 +207,7 @@ scene.add(dir);
 // grid box / axes
 const RANGE = 2.5;
 function makeAxis(from, to, color) {
-  const mat = new THREE.LineBasicMaterial({ color, opacity: 0.3, transparent: true });
+  const mat = new THREE.LineBasicMaterial({ color, opacity: 0.5, transparent: true });
   const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...from), new THREE.Vector3(...to)]);
   return new THREE.Line(geo, mat);
 }
@@ -219,7 +219,7 @@ scene.add(makeAxis([0,0,-RANGE],[0,0,RANGE], 0x457b9d));
 
 // grid
 const gridHelper = new THREE.GridHelper(5, 8, 0x1a1209, 0x1a1209);
-gridHelper.material.opacity = 0.06;
+gridHelper.material.opacity = 0.13;
 gridHelper.material.transparent = true;
 scene.add(gridHelper);
 
