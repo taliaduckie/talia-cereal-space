@@ -231,13 +231,18 @@ const spheres = [];
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-data.forEach((d, i) => {
-  const jitter = () => (Math.random() - 0.5) * 0.18;
-  const x = mapVal(d.struct) + jitter();
-  const y = mapVal(d.milk) + jitter();
-  const z = mapVal(d.dry) + jitter();
-  const r = 0.07 + (d.cartoon - 1) * 0.04; // 0.07 to 0.23
+const seededRandom = (seed) => {
+  const x = Math.sin(seed + 1) * 10000;
+  return x - Math.floor(x);
+};
 
+data.forEach((d, i) => {
+  const jitter = (offset) => (seededRandom(i * 3 + offset) - 0.5) * 0.28;
+  const x = mapVal(d.struct) + jitter(0);
+  const y = mapVal(d.milk) + jitter(1);
+  const z = mapVal(d.dry) + jitter(2);
+
+  const r = 0.07 + (d.cartoon - 1) * 0.04;
   const geo = new THREE.SphereGeometry(r, 20, 20);
   const mat = new THREE.MeshPhongMaterial({
     color: TIER_COLORS[d.tier],
