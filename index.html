@@ -526,7 +526,7 @@ document.getElementById('cereal-search').addEventListener('input', function() {
   const resultDiv = document.getElementById('search-result');
   if (!q) { resultDiv.innerHTML = ''; return; }
 
-  const matches = data.filter(d => d.name.toLowerCase().includes(q));
+  const matches = data.filter(d => d.name.toLowerCase().includes(q) && activeTiers.has(d.tier));
 
   if (matches.length === 0) {
     resultDiv.innerHTML = '<div class="no-result">no cereal found</div>';
