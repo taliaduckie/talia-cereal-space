@@ -476,6 +476,7 @@ function applyFilter() {
     const visible = activeTiers.has(tier);
     s.visible = visible;
     s.material.opacity = visible ? 0.88 : 0;
+    s.raycast = visible ? THREE.Mesh.prototype.raycast : () => {};
   });
 }
 
