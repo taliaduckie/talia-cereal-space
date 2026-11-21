@@ -113,6 +113,11 @@
   .result-weighted-label { font-size: 8px; color: rgba(26,18,9,0.4); letter-spacing: 0.1em; }
   .result-weighted-val { font-size: 20px; font-family: 'Alfa Slab One', serif; }
   .no-result { color: rgba(26,18,9,0.35); font-size: 10px; padding: 8px 0; }
+  [hidden] { display: none !important; }
+  #score-table { margin: 16px; }
+  #score-table th, #score-table td { padding: 5px; text-align: left; }
+  .legend-item { background: transparent; font-family: inherit; }
+  .legend-item:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -124,20 +129,32 @@
   <div id="canvas-wrap">
     <div id="tooltip"></div>
   </div>
-  <div class="footer-bar">
-    <div class="legend-item" data-tier="s"><div class="legend-dot" style="background:var(--s)"></div>S tier</div>
-    <div class="legend-item" data-tier="a"><div class="legend-dot" style="background:var(--a)"></div>A tier</div>
-    <div class="legend-item" data-tier="b"><div class="legend-dot" style="background:var(--b)"></div>B tier</div>
-    <div class="legend-item" data-tier="c"><div class="legend-dot" style="background:var(--c)"></div>C tier</div>
-    <div class="legend-item" data-tier="d"><div class="legend-dot" style="background:var(--d)"></div>D tier</div>
+  <div class="footer-bar" id="chart-controls">
+    <button type="button" class="legend-item" data-tier="s" aria-pressed="true"><span class="legend-dot" aria-hidden="true" style="background:var(--s)"></span>S tier</button>
+    <button type="button" class="legend-item" data-tier="a" aria-pressed="true"><span class="legend-dot" aria-hidden="true" style="background:var(--a)"></span>A tier</button>
+    <button type="button" class="legend-item" data-tier="b" aria-pressed="true"><span class="legend-dot" aria-hidden="true" style="background:var(--b)"></span>B tier</button>
+    <button type="button" class="legend-item" data-tier="c" aria-pressed="true"><span class="legend-dot" aria-hidden="true" style="background:var(--c)"></span>C tier</button>
+    <button type="button" class="legend-item" data-tier="d" aria-pressed="true"><span class="legend-dot" aria-hidden="true" style="background:var(--d)"></span>D tier</button>
     <div class="axis-legend">sphere size = cartoon effect</div>
     <button class="reset-btn" id="reset-filter">show all</button>
     <button class="reset-btn" id="reset-orientation">reset view</button>
   </div>
-  <div class="search-bar">
-    <input type="text" id="cereal-search" placeholder="search a cereal..." autocomplete="off" />
+  <div class="search-bar" id="chart-search">
+    <input type="text" id="cereal-search" aria-label="Search cereals" placeholder="search a cereal..." autocomplete="off" />
   </div>
-  <div id="search-result"></div>
+  <div id="search-result" aria-live="polite"></div>
+  <p id="chart-unavailable" hidden>The 3D chart is unavailable. The full cereal scores are below.</p>
+  <details id="score-table">
+    <summary>Read the cereal scores as a table</summary>
+    <div style="overflow-x: auto">
+      <table>
+        <caption>Cereal tiers and scores</caption>
+        <thead><tr><th scope="col">Cereal</th><th scope="col">Tier</th><th scope="col">Structural integrity</th><th scope="col">Milk palatability</th><th scope="col">Dry merit</th><th scope="col">Cartoon effect</th><th scope="col">Weighted score</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </details>
+  <noscript>This chart and score table need JavaScript. The <a href="https://taliahonikman.substack.com/p/ranking-american-breakfast-cereals">original essay</a> explains the rankings.</noscript>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -183,11 +200,44 @@ const data = [
   { name: "Cap'n Crunch Berry",    struct:4, milk:1, dry:1, cartoon:4, tier:"d", weighted:2.50 },
 ];
 
+// The table does not depend on Three.js or a working GPU.
+const scores = document.getElementById('score-table');
+for (const cereal of data) {
+  const row = scores.querySelector('tbody').insertRow();
+  const label = document.createElement('th');
+  label.scope = 'row';
+  label.textContent = cereal.name;
+  row.appendChild(label);
+  for (const value of [cereal.tier.toUpperCase(), cereal.struct, cereal.milk, cereal.dry, cereal.cartoon, cereal.weighted.toFixed(2)]) {
+    row.insertCell().textContent = value;
+  }
+}
+
+function showScoresOnly() {
+  scores.open = true;
+  for (const id of ['canvas-wrap', 'chart-controls', 'chart-search', 'search-result']) {
+    document.getElementById(id).hidden = true;
+  }
+  document.getElementById('chart-unavailable').hidden = false;
+}
+
+function startChart() {
 // scene setup
 const wrap = document.getElementById('canvas-wrap');
 const W = wrap.clientWidth || 900, H = wrap.clientHeight || 560;
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+} catch {
+  showScoresOnly();
+  return;
+}
+let chartLost = false;
+renderer.domElement.addEventListener('webglcontextlost', () => {
+  chartLost = true;
+  showScoresOnly();
+});
 renderer.setSize(W, H);
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setClearColor(0xfffdf7, 1);
@@ -410,6 +460,7 @@ wrap.addEventListener('wheel', e => {
 
 // render loop
 function animate() {
+  if (chartLost) return;
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
 }
@@ -462,10 +513,10 @@ function renderResult(d) {
 }
 
 // highlight helpers
-function highlightSphere(name) {
+function highlightSphere(name, intensity = 0.5) {
   spheres.forEach(s => {
     s.material.emissive = new THREE.Color(s.userData.name === name ? 0xffffff : 0x000000);
-    s.material.emissiveIntensity = s.userData.name === name ? 0.5 : 0;
+    s.material.emissiveIntensity = s.userData.name === name ? intensity : 0;
   });
 }
 function clearHighlight() {
@@ -483,6 +534,10 @@ function applyFilter() {
     s.material.opacity = visible ? 0.88 : 0;
     s.raycast = visible ? THREE.Mesh.prototype.raycast : () => {};
   });
+  const tip = document.getElementById('tooltip');
+  tip.style.opacity = '0';
+  tip.dataset.current = '';
+  updateSearch();
 }
 
 document.querySelectorAll('.legend-item[data-tier]').forEach(btn => {
@@ -503,11 +558,8 @@ document.querySelectorAll('.legend-item[data-tier]').forEach(btn => {
       const t = b.dataset.tier;
       b.classList.toggle('active', activeTiers.has(t) && activeTiers.size < 5);
       b.classList.toggle('dimmed', !activeTiers.has(t));
+      b.setAttribute('aria-pressed', String(activeTiers.has(t)));
     });
-    const tip = document.getElementById('tooltip');
-    tip.style.opacity = '0';
-    tip.dataset.current = '';
-    clearHighlight();
     applyFilter();
   });
 });
@@ -523,31 +575,33 @@ document.getElementById('reset-filter').addEventListener('click', () => {
   activeTiers = new Set(['s','a','b','c','d']);
   document.querySelectorAll('.legend-item[data-tier]').forEach(b => {
     b.classList.remove('active', 'dimmed');
+    b.setAttribute('aria-pressed', 'true');
   });
   applyFilter();
 });
 
-document.getElementById('cereal-search').addEventListener('input', function() {
-  const q = this.value.toLowerCase().trim();
+const search = document.getElementById('cereal-search');
+
+function updateSearch() {
+  const q = search.value.toLowerCase().trim();
   const resultDiv = document.getElementById('search-result');
+  clearHighlight();
   if (!q) { resultDiv.innerHTML = ''; return; }
 
   const matches = data.filter(d => d.name.toLowerCase().includes(q) && activeTiers.has(d.tier));
-
   if (matches.length === 0) {
     resultDiv.innerHTML = '<div class="no-result">no cereal found</div>';
   } else if (matches.length === 1) {
     resultDiv.innerHTML = renderResult(matches[0]);
-    // highlight sphere
-    spheres.forEach(s => {
-      s.material.emissive = new THREE.Color(s.userData.name === matches[0].name ? 0xffffff : 0x000000);
-      s.material.emissiveIntensity = s.userData.name === matches[0].name ? 0.4 : 0;
-    });
+    highlightSphere(matches[0].name, 0.4);
   } else {
     resultDiv.innerHTML = matches.map(renderResult).join('<div style="height:6px"></div>');
-    spheres.forEach(s => { s.material.emissive = new THREE.Color(0x000000); s.material.emissiveIntensity = 0; });
   }
-});
+}
+search.addEventListener('input', updateSearch);
+}
+if (typeof THREE === 'undefined') showScoresOnly();
+else startChart();
 </script>
 </body>
 </html>
